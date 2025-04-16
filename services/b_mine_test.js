@@ -130,120 +130,120 @@ async function getRawObjectsByPaths(bucketName, paths) {
       }
     }
   }
-  
+  console.log(results)
   return results;
 }
 
-// const paths=getFilePath("household-HCMC-Q1-0","2025-04-13T06:00:00Z","2025-04-13T09:00:00Z",'1h')
-// const obj=getRawObjectsByPaths('household',paths)
+const paths=getFilePath("household-HCMC-Q1-0","2025-04-12T08:25:30Z","2025-04-12T12:25:30Z",'1h')
+const obj=getRawObjectsByPaths('household',paths)
 // console.log(obj)
-function extractAndTransformDataFromObjects(objects,timeSlot) {
-  const dataByTimestamp = {};
-  for (const obj of objects) {
-    if (!obj.data.timestamp.endsWith('Z')) {
-      obj.data.timestamp += 'Z';
-    }
+// function extractAndTransformDataFromObjects(objects,timeSlot) {
+//   const dataByTimestamp = {};
+//   for (const obj of objects) {
+//     if (!obj.data.timestamp.endsWith('Z')) {
+//       obj.data.timestamp += 'Z';
+//     }
 
-    let timestamp = new Date(obj.data.timestamp) ;
+//     let timestamp = new Date(obj.data.timestamp) ;
 
-    switch (timeSlot){
-      case '1m':
-        timestamp.setUTCSeconds(0, 0);
-      case '1h':
-        timestamp.setUTCMinutes(0, 0, 0);
-      case '1d': 
-      timestamp.setUTCHours(0, 0, 0, 0);
-    }
-    const timeKey = timestamp.getTime();
+//     switch (timeSlot){
+//       case '1m':
+//         timestamp.setUTCSeconds(0, 0);
+//       case '1h':
+//         timestamp.setUTCMinutes(0, 0, 0);
+//       case '1d': 
+//       timestamp.setUTCHours(0, 0, 0, 0);
+//     }
+//     const timeKey = timestamp.getTime();
     
-    // Only keep the latest record for each timestamp
-    if (!dataByTimestamp[timeKey]) {
-      dataByTimestamp[timeKey] = {
-        timestamp,
-        value: obj.data.electricity_usage_kwh
-      };
-    }
-  }
-  // console.log(dataByTimestamp)
-  return dataByTimestamp
-}
+//     // Only keep the latest record for each timestamp
+//     if (!dataByTimestamp[timeKey]) {
+//       dataByTimestamp[timeKey] = {
+//         timestamp,
+//         value: obj.data.electricity_usage_kwh
+//       };
+//     }
+//   }
+//   // console.log(dataByTimestamp)
+//   return dataByTimestamp
+// }
 
 
-function generateTimeRanges(startDate, endDate, timeSlot) {
-  const timeRanges = [];
-  startDate = new Date(startDate) ;
-  endDate = new Date(endDate) ;
-  let currentTime = ""
-  let intervalMs = 0
-  switch (timeSlot){
-    case '1m':
-      startDate.setUTCSeconds(0, 0)
-      endDate.setUTCSeconds(0, 0)
-      currentTime=startDate
-      intervalMs = 60 * 1000
-      while (currentTime <= endDate) {
-        timeRanges.push(currentTime.getTime());
-        currentTime = new Date(currentTime.getTime() + intervalMs);
-      }
+// function generateTimeRanges(startDate, endDate, timeSlot) {
+//   const timeRanges = [];
+//   startDate = new Date(startDate) ;
+//   endDate = new Date(endDate) ;
+//   let currentTime = ""
+//   let intervalMs = 0
+//   switch (timeSlot){
+//     case '1m':
+//       startDate.setUTCSeconds(0, 0)
+//       endDate.setUTCSeconds(0, 0)
+//       currentTime=startDate
+//       intervalMs = 60 * 1000
+//       while (currentTime <= endDate) {
+//         timeRanges.push(currentTime.getTime());
+//         currentTime = new Date(currentTime.getTime() + intervalMs);
+//       }
 
-    case '1h':
-      startDate.setUTCMinutes(0, 0, 0)
-      endDate.setUTCMinutes(0, 0, 0)
-      currentTime=startDate
-      intervalMs = 60 * 60 * 1000
-      while (currentTime <= endDate) {
-        timeRanges.push(currentTime.getTime());
-        currentTime = new Date(currentTime.getTime() + intervalMs);
-      }
+//     case '1h':
+//       startDate.setUTCMinutes(0, 0, 0)
+//       endDate.setUTCMinutes(0, 0, 0)
+//       currentTime=startDate
+//       intervalMs = 60 * 60 * 1000
+//       while (currentTime <= endDate) {
+//         timeRanges.push(currentTime.getTime());
+//         currentTime = new Date(currentTime.getTime() + intervalMs);
+//       }
 
-    case '1d':
-      startDate.setUTCHours(0, 0, 0, 0)
-      endDate.setUTCHours(0, 0, 0, 0)
-      currentTime=startDate
-      intervalMs = 24 * 60 * 60 * 1000
-      while (currentTime <= endDate) {
-        timeRanges.push(currentTime.getTime());
-        currentTime = new Date(currentTime.getTime() + intervalMs);
-      }
-  }
-  return timeRanges
-}
-function createChartDataPoints(timeRanges, dataByTimestamp) {
-  const chartData = [];
-  let dataPoint ={}
-  timeRanges.forEach(timePoint =>{
-    dataPoint = {
-      x: timePoint,
-      y: dataByTimestamp[timePoint]?.value | 0,
-      x_utc_timestamp: new Date(timePoint)
-    };
-    chartData.push(dataPoint)
-  })
-  return chartData
-}
+//     case '1d':
+//       startDate.setUTCHours(0, 0, 0, 0)
+//       endDate.setUTCHours(0, 0, 0, 0)
+//       currentTime=startDate
+//       intervalMs = 24 * 60 * 60 * 1000
+//       while (currentTime <= endDate) {
+//         timeRanges.push(currentTime.getTime());
+//         currentTime = new Date(currentTime.getTime() + intervalMs);
+//       }
+//   }
+//   return timeRanges
+// }
+// function createChartDataPoints(timeRanges, dataByTimestamp) {
+//   const chartData = [];
+//   let dataPoint ={}
+//   timeRanges.forEach(timePoint =>{
+//     dataPoint = {
+//       x: timePoint,
+//       y: dataByTimestamp[timePoint]?.value | 0,
+//       x_utc_timestamp: new Date(timePoint)
+//     };
+//     chartData.push(dataPoint)
+//   })
+//   return chartData
+// }
 
-async function main(){
-  const startDate="2025-04-11T06:00:00Z"
-  const endDate="2025-04-13T09:00:00Z"
-  const timeSlot= "1d"
-  const paths=getFilePath("household-HCMC-Q1-0",startDate,endDate,timeSlot)
-  const objects= await getRawObjectsByPaths('household',paths)
-  const dataByTimestamps = extractAndTransformDataFromObjects(objects,timeSlot)
-  const timeRanges = generateTimeRanges(startDate,endDate,timeSlot)
-  const chartData= createChartDataPoints(timeRanges,dataByTimestamps)
-  console.log(chartData)
-  return chartData
+// async function main(){
+//   const startDate="2025-04-11T06:00:00Z"
+//   const endDate="2025-04-13T09:00:00Z"
+//   const timeSlot= "1d"
+//   const paths=getFilePath("household-HCMC-Q1-0",startDate,endDate,timeSlot)
+//   const objects= await getRawObjectsByPaths('household',paths)
+//   const dataByTimestamps = extractAndTransformDataFromObjects(objects,timeSlot)
+//   const timeRanges = generateTimeRanges(startDate,endDate,timeSlot)
+//   const chartData= createChartDataPoints(timeRanges,dataByTimestamps)
+//   console.log(chartData)
+//   return chartData
 
-  //=======
+//   //=======
 
-  // const paths=getFilePath("household-HCMC-Q1-0","2025-04-12T05:00:00Z","2025-04-13T09:00:00Z",'1d')
-  // // console.log(paths)
-  // const bucketName = "household";
-  // // const paths = ["household-HCMC-Q1-0/2025-04-13.json"];
-  // const obj=await getRawObjectsByPaths(bucketName,paths)
-  // console.log(obj)
-}
-// main()
-console.log(main())
+//   // const paths=getFilePath("household-HCMC-Q1-0","2025-04-12T05:00:00Z","2025-04-13T09:00:00Z",'1d')
+//   // // console.log(paths)
+//   // const bucketName = "household";
+//   // // const paths = ["household-HCMC-Q1-0/2025-04-13.json"];
+//   // const obj=await getRawObjectsByPaths(bucketName,paths)
+//   // console.log(obj)
+// }
+// // main()
+// console.log(main())
 
 // console.log(generateTimeRanges("2025-04-13T08:00:26.687Z", "2025-04-13T08:03:02.000Z", "1m"))
