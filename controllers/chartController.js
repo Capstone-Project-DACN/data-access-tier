@@ -44,4 +44,33 @@ exports.getChartData = async (req, res) => {
       });
     }
   };
+exports.getChartCityUsage = async (req, res) => {
+    try {
+      const city = req.query.city;
+      const timeStart = req.query.time_start;
+      const timeEnd = req.query.time_end;
+      
+      // Validate required parameters
+      if (!city || !timeStart || !timeEnd) {
+        return res.status(400).json({
+          error: 'Missing required parameters',
+          message: 'Please provide city, time_start, and time_end parameters'
+        });
+      }
+      
+      const chartData = await chartService.getChartCityUsage(
+        city, 
+        timeStart,
+        timeEnd
+      );
+      
+      res.json(chartData);
+    } catch (err) {
+      console.error('Error in chart endpoint:', err);
+      res.status(500).json({
+        error: 'Internal server error',
+        message: err.message
+      });
+    }
+  };
   

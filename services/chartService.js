@@ -138,13 +138,16 @@ function extractAndTransformDataFromObjects(objects, timeSlot) {
     if (!dataByTimestamp[timeKey]) {
       dataByTimestamp[timeKey] = {
         timestamp,
-        value: obj.data.type=="HouseholdData"? {
-          electricity_usage: obj.data.electricity_usage_kwh,
-          voltage: obj.data.voltage,
-          current:  obj.data.current,
-        } : {
-          electricity_usage: obj.data.total_electricity_usage_kwh
-        }
+        value:
+          obj.data.type == "HouseholdData"
+            ? {
+                electricity_usage: obj.data.electricity_usage_kwh,
+                voltage: obj.data.voltage,
+                current: obj.data.current,
+              }
+            : {
+                electricity_usage: obj.data.total_electricity_usage_kwh,
+              },
       };
     }
   }
@@ -198,29 +201,29 @@ function createChartDataPoints(timeRanges, dataByTimestamp, sortOrder) {
   let dataPoint = {};
   timeRanges.forEach((timePoint) => {
     const dataValue = dataByTimestamp[timePoint]?.value;
-    
+
     // Start with the common properties
     const dataPoint = {
       x: timePoint,
       x_utc_timestamp: new Date(timePoint),
       electricity_usage: dataValue?.electricity_usage || 0,
     };
-    
+
     // If it's HouseholdData, add the additional fields
     if (dataValue && dataValue.voltage !== undefined) {
       dataPoint.voltage = dataValue.voltage;
       dataPoint.current = dataValue.current;
     }
-    
+
     chartData.push(dataPoint);
   });
 
   if (sortOrder == -1) {
     return chartData.sort((a, b) => {
-      return b.x - a.x
-    })
+      return b.x - a.x;
+    });
   }
-  
+
   return chartData;
 }
 
@@ -252,7 +255,11 @@ exports.getChartData = async (
     const timeRanges = generateTimeRanges(timeStart, timeEnd, timeSlot);
 
     // Create chart data points
-    const chartData = createChartDataPoints(timeRanges, dataByTimestamp, sortOrder);
+    const chartData = createChartDataPoints(
+      timeRanges,
+      dataByTimestamp,
+      sortOrder
+    );
 
     return {
       device_id: deviceId,
@@ -262,4 +269,94 @@ exports.getChartData = async (
     console.error("Error getting chart data:", err);
     throw err;
   }
+};
+
+async function listTopLevelFolders(city) {
+  try {
+    const objectsStream = minioClient.listObjectsV2("ward", "", true);
+
+    const topLevelFolders = new Set();
+
+    
+    await new Promise((resolve, reject) => {
+      objectsStream.on("data", (obj) => {
+        if (obj.name.includes("/")) {
+          const folder = obj.name.split("/")[0];
+          if (folder.includes(`${city}`)) {
+            topLevelFolders.add(folder);
+          }
+        }
+      });
+  
+      objectsStream.on("error", (err) => {
+        console.error("Error listing objects:", err);
+        resolve()
+      });
+  
+      objectsStream.on("end", () => {
+        resolve()
+      });
+    });
+    
+    return topLevelFolders
+  } catch (err) {
+    console.error("Error:", err);
+  }
+}
+function getElectricityUsage(dataByTimestamp) {
+  // If there's no data or only one entry, we can't calculate usage
+  const timeKeys = Object.keys(dataByTimestamp);
+  if (timeKeys.length <= 1) {
+    return {
+      usage:0,
+      reason: "have data points <= 1"
+    }
+  }
+
+  // Sort the timestamps
+  const sortedTimeKeys = timeKeys.map(Number).sort((a, b) => a - b);
+  
+  // Get the oldest and newest readings
+  const oldestKey = sortedTimeKeys[0];
+  const newestKey = sortedTimeKeys[sortedTimeKeys.length - 1];
+  
+  const oldestReading = dataByTimestamp[oldestKey];
+  const newestReading = dataByTimestamp[newestKey];
+  
+  // Calculate the difference in electricity usage
+  const startValue = oldestReading.value.electricity_usage;
+  const endValue = newestReading.value.electricity_usage;
+  const usage = endValue - startValue;
+  
+  return {
+    usage: usage,
+    startValue: startValue,
+    endValue: endValue,
+    startTime: oldestReading.timestamp,
+    endTime: newestReading.timestamp,
+    start_utc: new Date(oldestReading.timestamp),
+    end_utc: new Date(newestReading.timestamp)
+  };
+}
+
+exports.getChartCityUsage = async (city,timeStart,timeEnd) => {
+  const allDeviceInCity = await listTopLevelFolders(city)
+  const timeSlot='1d'
+  const bucket="ward"
+  const districtUsageElectricity=[]
+  for (const device of allDeviceInCity){
+    const paths=getFilePaths( device, timeStart,timeEnd,timeSlot)
+    const objects= await getRawObjectsByPaths(bucket,paths)
+    const dataByTimestamp = extractAndTransformDataFromObjects(
+      objects,
+      timeSlot
+    );
+    const usage =getElectricityUsage(dataByTimestamp)
+    const district = device.split("-")[2]
+    districtUsageElectricity.push({
+      district,
+      ...usage
+    })
+  }
+  return districtUsageElectricity
 };

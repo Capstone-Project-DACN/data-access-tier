@@ -88,10 +88,10 @@ async function getObject() {
   console.log(dataContent);
 }
 
-const bucketName = "household";
-const paths = ["household-HCMC-Q1-0/2025-04-13.json"];
+// const bucketName = "household";
+// const paths = ["household-HCMC-Q1-0/2025-04-13.json"];
 // listObject(bucketName, paths);
-getRawObjectsByPaths(bucketName, paths);
+// getRawObjectsByPaths(bucketName, paths);
 
 
 
@@ -105,3 +105,32 @@ getRawObjectsByPaths(bucketName, paths);
 // const dateStr = timeStrDate.toISOString().split('T')[0]; // YYYY-MM-DD
 // console.log(dateStr);
 // console.log(timeStrDate.getTime());
+
+
+async function listTopLevelFolders(city) {
+  try {
+    const objectsStream = minioClient.listObjectsV2("ward", "", true);
+
+    const topLevelFolders = new Set();
+
+    objectsStream.on("data", (obj) => {
+      if (obj.name.includes("/")) {
+        const folder = obj.name.split("/")[0] + "/";
+        if (folder.includes(`${city}`)) {
+          topLevelFolders.add(folder);
+        }
+      }
+    });
+
+    objectsStream.on("error", (err) => {
+      console.error("Error listing objects:", err);
+    });
+
+    objectsStream.on("end", () => {
+      console.log("Top-level folders:", Array.from(topLevelFolders));
+    });
+  } catch (err) {
+    console.error("Error:", err);
+  }
+}
+listTopLevelFolders('HCMC');

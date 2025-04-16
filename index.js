@@ -1,8 +1,12 @@
 // server.js - Main entry point
 const express = require('express');
 const app = express();
+const cors = require('cors'); 
 const port = process.env.PORT || 3003;
 const itemRoutes = require('./routes/minioRoutes');
+
+// Enable CORS for all origins
+app.use(cors());
 
 // Middleware
 app.use(express.json());

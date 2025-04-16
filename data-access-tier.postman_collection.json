@@ -882,6 +882,14 @@
 					"body": "{\n    \"device_id\": \"area-HCMC-Q1\",\n    \"data\": [\n        {\n            \"x\": 1744588800000,\n            \"x_utc_timestamp\": \"2025-04-14T00:00:00.000Z\",\n            \"electricity_usage\": 0\n        },\n        {\n            \"x\": 1744502400000,\n            \"x_utc_timestamp\": \"2025-04-13T00:00:00.000Z\",\n            \"electricity_usage\": 5749.6201171875\n        },\n        {\n            \"x\": 1744416000000,\n            \"x_utc_timestamp\": \"2025-04-12T00:00:00.000Z\",\n            \"electricity_usage\": 5183.35986328125\n        }\n    ]\n}"
 				}
 			]
+		},
+		{
+			"name": "Get area chart usage difference",
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
 		}
 	],
 	"event": [

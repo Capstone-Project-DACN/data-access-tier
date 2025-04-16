@@ -7,4 +7,5 @@ const areaController = require('../controllers/areaController');
 router.get('/household/:householdId', householdController.getProcessedHouseholdData);
 router.get('/area/:areaId', areaController.getProcessedAreaData);
 router.get('/chart/', chartController.getChartData) 
+router.get('/chart/usage', chartController.getChartCityUsage) 
 module.exports = router;
