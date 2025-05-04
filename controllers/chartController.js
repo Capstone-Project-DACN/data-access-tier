@@ -73,4 +73,97 @@ exports.getChartCityUsage = async (req, res) => {
       });
     }
   };
-  
+exports.getChartCityDaily= async(req,res) =>{
+  try {
+    const deviceId = req.query.device_id;
+    const timeStart = req.query.time_start;
+    const timeEnd = req.query.time_end;
+    const multiplyBy= req.query.multiplyBy | 1000
+    // Validate required parameters
+    if (!deviceId || !timeStart || !timeEnd) {
+      return res.status(400).json({
+        error: 'Missing required parameters',
+        message: 'Please provide device_Id, time_start, and time_end parameters'
+      });
+    }
+    
+    const startDate = new Date(timeStart);
+    const endDate = new Date(timeEnd);
+
+    // Check if dates are valid
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return res.status(400).json({
+        error: 'Invalid date format',
+        message: 'Please provide valid date formats for time_start and time_end'
+      });
+    }
+
+    const timeDifference = endDate.getTime() - startDate.getTime();
+    const dayDifference = timeDifference / (1000 * 3600 * 24);
+
+    // Verify that end date is after start date by at least 1 day
+    if (timeDifference <= 0 || dayDifference < 1) {
+      return res.status(400).json({
+        error: 'Invalid time range',
+        message: 'time_end must be greater than time_start by at least 1 day'
+      });
+    }
+
+    const chartData = await chartService.getChartCityDaily(
+      deviceId, 
+      timeStart,
+      timeEnd,
+      multiplyBy
+    );
+    
+    res.json(chartData);
+  } catch (err) {
+    console.error('Error in chart endpoint:', err);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: err.message
+    });
+  }
+}
+
+exports.predictDaily= async(req,res) =>{
+  try {
+    const deviceId = 'area-HCMC-Q10';
+    const timeStart = req.query.time_start;
+    const timeEnd = req.query.time_end;
+    const multiplyBy= req.query.multiplyBy | 1000
+    // Validate required parameters
+    if (!deviceId || !timeStart || !timeEnd) {
+      return res.status(400).json({
+        error: 'Missing required parameters',
+        message: 'Please provide device_Id, time_start, and time_end parameters'
+      });
+    }
+    
+    const startDate = new Date(timeStart);
+    const endDate = new Date(timeEnd);
+
+    // Check if dates are valid
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return res.status(400).json({
+        error: 'Invalid date format',
+        message: 'Please provide valid date formats for time_start and time_end'
+      });
+    }
+
+    const chartData = await chartService.predictDaily(
+      deviceId, 
+      timeStart,
+      timeEnd,
+      multiplyBy
+    );
+    
+    res.json(chartData);
+  } catch (err) {
+    console.error('Error in chart endpoint:', err);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: err.message
+    });
+  }
+}

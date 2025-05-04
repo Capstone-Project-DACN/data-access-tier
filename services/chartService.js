@@ -1,7 +1,7 @@
 const Minio = require("minio");
 
 const minioClient = new Minio.Client({
-  endPoint: process.env.MINIO_ENDPOINT || "localhost",
+  endPoint: process.env.MINIO_ENDPOINT || "13.251.38.153",
   port: parseInt(process.env.MINIO_PORT || "9000"),
   useSSL: process.env.MINIO_USE_SSL === "true",
   accessKey: process.env.MINIO_ACCESS_KEY || "myminioadmin",
@@ -303,13 +303,14 @@ async function listTopLevelFolders(city) {
     console.error("Error:", err);
   }
 }
+
 function getElectricityUsage(dataByTimestamp) {
   // If there's no data or only one entry, we can't calculate usage
   const timeKeys = Object.keys(dataByTimestamp);
-  if (timeKeys.length <= 1) {
+  if (timeKeys.length < 1) {
     return {
       usage:0,
-      reason: "have data points <= 1"
+      reason: "have data points < 1"
     }
   }
 
@@ -360,3 +361,143 @@ exports.getChartCityUsage = async (city,timeStart,timeEnd) => {
   }
   return districtUsageElectricity
 };
+
+function getElectricityDaily(dataByTimestamp, multiplyBy){
+  const timeKeys = Object.keys(dataByTimestamp);
+  
+  if (timeKeys.length <= 1) {
+    return {
+      usage:0,
+      reason: "have data points <= 1, must have > 2"
+    }
+  }
+
+  const dailyTotal=[]
+  let startTime
+  let startValue
+  let endTime
+  let endValue
+  let start_utc
+  let end_utc
+  let usage 
+  
+  for (let i=0;i<timeKeys.length-1;i++){
+    startTime=timeKeys[i]
+    startValue= dataByTimestamp[startTime].value.electricity_usage
+    endTime=timeKeys[i+1]
+    endValue= dataByTimestamp[endTime].value.electricity_usage
+    usage_before_multiply= (endValue - startValue)
+    usage= usage_before_multiply * multiplyBy
+
+    start_utc = new Date(dataByTimestamp[startTime].timestamp);
+    end_utc = new Date(dataByTimestamp[endTime].timestamp);
+    dailyTotal.push({
+      usage,
+      usage_before_multiply,
+      multiplyBy,
+      startValue,
+      endValue,
+      startTime,
+      endTime,
+      start_utc,
+      end_utc
+    })
+  }
+
+  return dailyTotal
+}
+
+exports.getChartCityDaily=async (deviceId,timeStart,timeEnd,multiplyBy) => {
+  const timeSlot='1d'
+  const bucket="ward"
+  const paths=getFilePaths( deviceId, timeStart,timeEnd,timeSlot)
+  const objects= await getRawObjectsByPaths(bucket,paths)
+  const dataByTimestamp = extractAndTransformDataFromObjects(
+    objects,
+    timeSlot
+  );
+  const usage =getElectricityDaily(dataByTimestamp, multiplyBy)
+
+  return usage
+};
+
+
+async function getFilePredictFromMinIO() {
+  // Set up bucket name and object name
+  const bucketName = "predict";
+  const objectName = "electricity_forecast_q10_jun_dec_2025.csv";
+  
+  try {
+    // Get the object as a stream
+    const dataStream = await minioClient.getObject(bucketName, objectName);
+    
+    // Convert stream to Buffer
+    const chunks = [];
+    return new Promise((resolve, reject) => {
+      dataStream.on('data', (chunk) => {
+        chunks.push(chunk);
+      });
+      
+      dataStream.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        const csvContent = buffer.toString('utf-8');
+        
+        // Parse CSV and format data
+        const formattedData = parseCSVToRequestedFormat(csvContent);
+        resolve(formattedData);
+      });
+      
+      dataStream.on('error', (err) => {
+        reject(err);
+      });
+    });
+  } catch (err) {
+    console.error("Error retrieving file from MinIO:", err);
+    throw err;
+  }
+}
+
+function parseCSVToRequestedFormat(csvContent) {
+  // Split by lines and remove any empty lines
+  const lines = csvContent.trim().split('\n');
+  
+  // Skip header line and parse data rows
+  const result = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const [date_part, daily_usage] = lines[i].split(',');
+    
+    const dateObj = new Date(date_part);
+    const date_part_utc = dateObj.getTime();
+    
+    result.push({
+      date_part,
+      daily_usage: parseFloat(daily_usage),
+      date_part_utc
+    });
+  }
+  
+  return result;
+}
+
+exports.predictDaily = async (deviceId, timeStart, timeEnd, multiplyBy) => {
+  const allData = await getFilePredictFromMinIO();
+  
+  // Convert timeStart and timeEnd to milliseconds if they're not already
+  const startTime = typeof timeStart === 'string' ? new Date(timeStart).getTime() : timeStart;
+  const endTime = typeof timeEnd === 'string' ? new Date(timeEnd).getTime() : timeEnd;
+  
+  // Filter data between timeStart and timeEnd
+  const filteredData = allData.filter(item => {
+    return item.date_part_utc >= startTime && item.date_part_utc <= endTime;
+  });
+  
+  // Apply multiplication factor if provided
+  if (multiplyBy !== undefined && multiplyBy !== null) {
+    filteredData.forEach(item => {
+      item.daily_usage = item.daily_usage * multiplyBy;
+    });
+  }
+  
+  return filteredData;
+}

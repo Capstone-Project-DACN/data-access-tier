@@ -6,7 +6,7 @@ const { promisify } = require("util");
 const finished = promisify(stream.finished);
 
 const minioClient = new Minio.Client({
-  endPoint: process.env.MINIO_ENDPOINT || "localhost",
+  endPoint: process.env.MINIO_ENDPOINT || "13.251.38.153",
   port: parseInt(process.env.MINIO_PORT || "9000"),
   useSSL: process.env.MINIO_USE_SSL === "true",
   accessKey: process.env.MINIO_ACCESS_KEY || "myminioadmin",
@@ -107,30 +107,95 @@ async function getObject() {
 // console.log(timeStrDate.getTime());
 
 
-async function listTopLevelFolders(city) {
+// async function listTopLevelFolders(city) {
+//   try {
+//     const objectsStream = minioClient.listObjectsV2("ward", "", true);
+
+//     const topLevelFolders = new Set();
+
+//     objectsStream.on("data", (obj) => {
+//       if (obj.name.includes("/")) {
+//         const folder = obj.name.split("/")[0] + "/";
+//         if (folder.includes(`${city}`)) {
+//           topLevelFolders.add(folder);
+//         }
+//       }
+//     });
+
+//     objectsStream.on("error", (err) => {
+//       console.error("Error listing objects:", err);
+//     });
+
+//     objectsStream.on("end", () => {
+//       console.log("Top-level folders:", Array.from(topLevelFolders));
+//     });
+//   } catch (err) {
+//     console.error("Error:", err);
+//   }
+// }
+// listTopLevelFolders('HCMC');
+
+async function getFileFromMinIO() {
+  // Set up bucket name and object name
+  const bucketName = "predict";
+  const objectName = "electricity_forecast_q10_jun_dec_2025.csv";
+  
   try {
-    const objectsStream = minioClient.listObjectsV2("ward", "", true);
-
-    const topLevelFolders = new Set();
-
-    objectsStream.on("data", (obj) => {
-      if (obj.name.includes("/")) {
-        const folder = obj.name.split("/")[0] + "/";
-        if (folder.includes(`${city}`)) {
-          topLevelFolders.add(folder);
-        }
-      }
-    });
-
-    objectsStream.on("error", (err) => {
-      console.error("Error listing objects:", err);
-    });
-
-    objectsStream.on("end", () => {
-      console.log("Top-level folders:", Array.from(topLevelFolders));
+    // Get the object as a stream
+    const dataStream = await minioClient.getObject(bucketName, objectName);
+    
+    // Convert stream to Buffer
+    const chunks = [];
+    return new Promise((resolve, reject) => {
+      dataStream.on('data', (chunk) => {
+        chunks.push(chunk);
+      });
+      
+      dataStream.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        const csvContent = buffer.toString('utf-8');
+        
+        // Parse CSV and format data
+        const formattedData = parseCSVToRequestedFormat(csvContent);
+        resolve(formattedData);
+      });
+      
+      dataStream.on('error', (err) => {
+        reject(err);
+      });
     });
   } catch (err) {
-    console.error("Error:", err);
+    console.error("Error retrieving file from MinIO:", err);
+    throw err;
   }
 }
-listTopLevelFolders('HCMC');
+
+function parseCSVToRequestedFormat(csvContent) {
+  // Split by lines and remove any empty lines
+  const lines = csvContent.trim().split('\n');
+  
+  // Skip header line and parse data rows
+  const result = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const [date_part, daily_usage] = lines[i].split(',');
+    
+    const dateObj = new Date(date_part);
+    const date_part_utc = dateObj.getTime();
+    
+    result.push({
+      date_part,
+      daily_usage: parseFloat(daily_usage),
+      date_part_utc
+    });
+  }
+  
+  return result;
+}
+
+async function main(){
+  let res= await getFileFromMinIO()
+  console.log(res)
+}
+
+main()
